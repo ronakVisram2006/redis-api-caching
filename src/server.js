@@ -63,6 +63,48 @@ async function startServer() {
         });
     });
 
+    app.get("/products/:id", async (req, res) => {
+        const productId = req.params.id;
+        const cacheKey = `product:${productId}`;
+
+        const cachedProduct = await redisClient.get(cacheKey);
+
+        if (cachedProduct) {
+            console.log("Cache hit!");
+
+            return res.json({
+                source: "Redis cache",
+                product: JSON.parse(cachedProduct)
+            });
+        }
+
+        console.log("Cache miss!");
+
+        const result = await pool.query(
+            "SELECT * FROM products WHERE id = $1",
+            [productId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                error: "Product not found"
+            });
+        }
+
+        const product = result.rows[0];
+
+        await redisClient.setEx(
+            cacheKey,
+            30,
+            JSON.stringify(product)
+        );
+
+        res.json({
+            source: "Database",
+            product
+        });
+    });
+
     app.listen(port, () => {
         console.log(`Server running on http://localhost:${port}`);
     });
