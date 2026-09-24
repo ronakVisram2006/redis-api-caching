@@ -1,5 +1,15 @@
+const { Pool } = require("pg");
+
 const express = require("express");
 const { createClient } = require("redis");
+
+const pool = new Pool({
+    host: "localhost",
+    port: 5432,
+    user: "postgres",
+    password: "postgres",
+    database: "productsdb"
+});
 
 const app = express();
 const port = 3000;
@@ -13,15 +23,13 @@ redisClient.on("error", (error) => {
 });
 
 async function getProductsFromDatabase() {
-    console.log("Getting products from database...");
+    console.log("Getting products from PostgreSQL...");
 
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    const result = await pool.query(
+        "SELECT * FROM products ORDER BY id"
+    );
 
-    return [
-        { id: 1, name: "Laptop", price: 999 },
-        { id: 2, name: "Keyboard", price: 79 },
-        { id: 3, name: "Mouse", price: 49 }
-    ];
+    return result.rows;
 }
 
 async function startServer() {
