@@ -12,15 +12,47 @@ redisClient.on("error", (error) => {
     console.error("Redis error:", error);
 });
 
+async function getProductsFromDatabase() {
+    console.log("Getting products from database...");
+
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    return [
+        { id: 1, name: "Laptop", price: 999 },
+        { id: 2, name: "Keyboard", price: 79 },
+        { id: 3, name: "Mouse", price: 49 }
+    ];
+}
+
 async function startServer() {
     await redisClient.connect();
 
-    app.get("/", async (req, res) => {
-        await redisClient.set("message", "Hello from Redis!");
+    app.get("/products", async (req, res) => {
+        const cachedProducts = await redisClient.get("products");
 
-        const message = await redisClient.get("message");
+        if (cachedProducts) {
+            console.log("Cache hit!");
 
-        res.json({ message });
+            return res.json({
+                source: "Redis cache",
+                products: JSON.parse(cachedProducts)
+            });
+        }
+
+        console.log("Cache miss!");
+
+        const products = await getProductsFromDatabase();
+
+        await redisClient.setEx(
+            "products",
+            30,
+            JSON.stringify(products)
+        );
+
+        res.json({
+            source: "Database",
+            products
+        });
     });
 
     app.listen(port, () => {
