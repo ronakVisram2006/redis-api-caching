@@ -12,6 +12,7 @@ const pool = new Pool({
 });
 
 const app = express();
+app.use(express.json());
 const port = 3000;
 
 const redisClient = createClient({
@@ -102,6 +103,28 @@ async function startServer() {
         res.json({
             source: "Database",
             product
+        });
+    });
+    app.put("/products/:id", async (req, res) => {
+        const productId = req.params.id;
+        const { name, price } = req.body;
+
+        const result = await pool.query(
+            "UPDATE products SET name = $1, price = $2 WHERE id = $3 RETURNING *",
+            [name, price, productId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                error: "Product not found"
+            });
+        }
+
+        await redisClient.del(`product:${productId}`);
+
+        res.json({
+            message: "Product updated",
+            product: result.rows[0]
         });
     });
 
